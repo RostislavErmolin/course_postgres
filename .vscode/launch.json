@@ -2,13 +2,52 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Run Inventory App",
+            "name": "Run (app_user)",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/main.py",
             "python": "${workspaceFolder}/.venv/bin/python3",
             "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/src"
+            "cwd": "${workspaceFolder}/src",
+            "env": {
+                "DB_NAME": "inventorydb",
+                "DB_USER": "app_user",
+                "DB_PASSWORD": "example",
+                "DB_HOST": "127.0.0.1",
+                "DB_PORT": "5433"
+            }
+        },
+        {
+            "name": "Run (catalog_manager)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "python": "${workspaceFolder}/.venv/bin/python3",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/src",
+            "env": {
+                "DB_NAME": "inventorydb",
+                "DB_USER": "catalog_manager",
+                "DB_PASSWORD": "catalog123",
+                "DB_HOST": "127.0.0.1",
+                "DB_PORT": "5433"
+            }
+        },
+        {
+            "name": "Run (sales_manager)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "python": "${workspaceFolder}/.venv/bin/python3",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/src",
+            "env": {
+                "DB_NAME": "inventorydb",
+                "DB_USER": "sales_manager",
+                "DB_PASSWORD": "sales123",
+                "DB_HOST": "127.0.0.1",
+                "DB_PORT": "5433"
+            }
         }
     ]
 }

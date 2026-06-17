@@ -9,10 +9,13 @@ from psycopg.rows import class_row
 from rich.panel import Panel
 from rich.table import Table
 
+from auth import ROLE_SALES_MANAGER, auth_user
 from console import console, render_error
 from db import get_conn
 from validators import NonEmptyValidator, YesNoValidator, ChoiceValidator
 from commands import command, CATEGORY_ORDERS
+
+_SALES_ONLY = [ROLE_SALES_MANAGER]
 
 
 @dataclass
@@ -22,6 +25,7 @@ class Order:
     total_amount: Decimal
     created_at: datetime
     warehouse_id: int
+    created_by: int
 
 
 @dataclass
@@ -62,6 +66,13 @@ def _get_order(conn, order_id: str) -> Order | None:
     with conn.cursor(row_factory=class_row(Order)) as cur:
         cur.execute("SELECT * FROM sales.orders WHERE id = %s", (order_id,))
         return cur.fetchone()
+
+
+def _get_username(conn, user_id: int) -> str:
+    with conn.cursor() as cur:
+        cur.execute("SELECT username FROM auth.users WHERE id = %s", (user_id,))
+        row = cur.fetchone()
+        return row[0] if row else str(user_id)
 
 
 def _get_warehouse_label(conn, warehouse_id: int) -> str:
@@ -205,6 +216,7 @@ def _render_order(order: Order) -> None:
     table.add_row("Сумма", f"{order.total_amount:.2f} ₽")
     table.add_row("Создан", order.created_at.strftime("%d.%m.%Y %H:%M"))
     table.add_row("Склад", _get_warehouse_label(conn, order.warehouse_id))
+    table.add_row("Автор", _get_username(conn, order.created_by))
 
     panel = Panel(
         table,
@@ -216,7 +228,7 @@ def _render_order(order: Order) -> None:
     _render_order_items(order.id)
 
 
-@command("list orders", "список всех заказов", CATEGORY_ORDERS)
+@command("list orders", "список всех заказов", CATEGORY_ORDERS, _SALES_ONLY)
 def list_orders() -> None:
     conn = get_conn()
     table = Table(title="Заказы", show_header=True, header_style="bold cyan")
@@ -247,7 +259,7 @@ def list_orders() -> None:
     console.print(table)
 
 
-@command("show order", "информация о заказе", CATEGORY_ORDERS)
+@command("show order", "информация о заказе", CATEGORY_ORDERS, _SALES_ONLY)
 def show_order(_id: str) -> None:
     conn = get_conn()
     order = _get_order(conn, _id)
@@ -257,7 +269,7 @@ def show_order(_id: str) -> None:
     _render_order(order)
 
 
-@command("add order", "создать заказ (интерактивно)", CATEGORY_ORDERS)
+@command("add order", "создать заказ (интерактивно)", CATEGORY_ORDERS, _SALES_ONLY)
 def add_order() -> None:
     conn = get_conn()
 
@@ -265,10 +277,11 @@ def add_order() -> None:
     if warehouse_id is None:
         return
 
+    user = auth_user()
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO sales.orders (warehouse_id) VALUES (%s) RETURNING id",
-            (warehouse_id,),
+            "INSERT INTO sales.orders (warehouse_id, created_by) VALUES (%s, %s) RETURNING id",
+            (warehouse_id, user.id),
         )
         row = cur.fetchone()
         assert row is not None
@@ -286,7 +299,7 @@ def add_order() -> None:
             excluded_ids.append(product_id)
 
 
-@command("edit order", "редактировать заказ", CATEGORY_ORDERS)
+@command("edit order", "редактировать заказ", CATEGORY_ORDERS, _SALES_ONLY)
 def edit_order(_id: str) -> None:
     conn = get_conn()
     order = _get_order(conn, _id)
@@ -309,7 +322,7 @@ def edit_order(_id: str) -> None:
     console.print(f"[green]Заказ #{_id} обновлён[/green]")
 
 
-@command("delete order", "удалить заказ", CATEGORY_ORDERS)
+@command("delete order", "удалить заказ", CATEGORY_ORDERS, _SALES_ONLY)
 def delete_order(_id: str) -> None:
     conn = get_conn()
     order = _get_order(conn, _id)
@@ -330,7 +343,7 @@ def delete_order(_id: str) -> None:
         console.print(f"[green]Заказ #{_id} удалён[/green]")
 
 
-@command("add order_item", "добавить товар в заказ", CATEGORY_ORDERS)
+@command("add order_item", "добавить товар в заказ", CATEGORY_ORDERS, _SALES_ONLY)
 def add_order_item(_id: str) -> None:
     conn = get_conn()
     order = _get_order(conn, _id)
@@ -351,7 +364,7 @@ def add_order_item(_id: str) -> None:
     _add_order_item_interactive(int(_id), excluded_ids)
 
 
-@command("edit order_item", "редактировать позицию заказа", CATEGORY_ORDERS)
+@command("edit order_item", "редактировать позицию заказа", CATEGORY_ORDERS, _SALES_ONLY)
 def edit_order_item(_id: str) -> None:
     conn = get_conn()
     order = _get_order(conn, _id)
@@ -415,7 +428,7 @@ def edit_order_item(_id: str) -> None:
     console.print("[green]Позиция обновлена[/green]")
 
 
-@command("delete order_item", "удалить позицию из заказа", CATEGORY_ORDERS)
+@command("delete order_item", "удалить позицию из заказа", CATEGORY_ORDERS, _SALES_ONLY)
 def delete_order_item(_id: str) -> None:
     conn = get_conn()
     order = _get_order(conn, _id)
@@ -462,7 +475,7 @@ def delete_order_item(_id: str) -> None:
         console.print("[green]Позиция удалена[/green]")
 
 
-@command("publish order", "опубликовать заказ (unpublished → new)", CATEGORY_ORDERS)
+@command("publish order", "опубликовать заказ (unpublished → new)", CATEGORY_ORDERS, _SALES_ONLY)
 def publish_order(_id: str) -> None:
     conn = get_conn()
     order = _get_order(conn, _id)
