@@ -7,11 +7,15 @@ from psycopg.rows import class_row
 from rich.panel import Panel
 from rich.table import Table
 
+from auth import ROLE_CATALOG_MANAGER, ROLE_SALES_MANAGER
 from console import console, render_error
 from db import get_conn
 from validators import NonEmptyValidator, PriceValidator, YesNoValidator
 from commands import command, CATEGORY_PRODUCTS
 from handlers.product_categories import ProductCategory
+
+_ALL_ROLES = [ROLE_CATALOG_MANAGER, ROLE_SALES_MANAGER]
+_CATALOG_ONLY = [ROLE_CATALOG_MANAGER]
 
 
 @dataclass
@@ -81,7 +85,7 @@ def _render_product(product: Product) -> None:
     console.print(panel)
 
 
-@command("list products", "список всех товаров", CATEGORY_PRODUCTS)
+@command("list products", "список всех товаров", CATEGORY_PRODUCTS, _ALL_ROLES)
 def list_products() -> None:
     conn = get_conn()
     table = Table(title="Товары", show_header=True, header_style="bold cyan")
@@ -109,7 +113,7 @@ def list_products() -> None:
     console.print(table)
 
 
-@command("show product", "информация о товаре", CATEGORY_PRODUCTS)
+@command("show product", "информация о товаре", CATEGORY_PRODUCTS, _ALL_ROLES)
 def show_product(_id: str) -> None:
     conn = get_conn()
     with conn.cursor(row_factory=class_row(Product)) as cur:
@@ -123,7 +127,7 @@ def show_product(_id: str) -> None:
     _render_product(product)
 
 
-@command("add product", "добавить товар (интерактивно)", CATEGORY_PRODUCTS)
+@command("add product", "добавить товар (интерактивно)", CATEGORY_PRODUCTS, _CATALOG_ONLY)
 def add_product() -> None:
     conn = get_conn()
 
@@ -142,7 +146,7 @@ def add_product() -> None:
     console.print(f"[green]Товар «{name}» (SKU: {sku}) добавлен[/green]")
 
 
-@command("edit product", "редактировать товар", CATEGORY_PRODUCTS)
+@command("edit product", "редактировать товар", CATEGORY_PRODUCTS, _CATALOG_ONLY)
 def edit_product(_id: str) -> None:
     conn = get_conn()
     with conn.cursor(row_factory=class_row(Product)) as cur:
@@ -176,7 +180,7 @@ def edit_product(_id: str) -> None:
     console.print(f"[green]Товар «{name}» (SKU: {sku}) обновлен[/green]")
 
 
-@command("delete product", "удалить товар", CATEGORY_PRODUCTS)
+@command("delete product", "удалить товар", CATEGORY_PRODUCTS, _CATALOG_ONLY)
 def delete_product(_id: str) -> None:
     conn = get_conn()
     with conn.cursor(row_factory=class_row(Product)) as cur:

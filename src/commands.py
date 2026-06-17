@@ -4,6 +4,8 @@ from typing import Final, Sequence, Callable
 
 from prompt_toolkit.completion import NestedCompleter
 
+from auth import auth_user
+
 # Категории команд
 CATEGORY_GENERAL: Final[str] = "ПРОЧЕЕ"
 CATEGORY_WAREHOUSES: Final[str] = "СКЛАДЫ"
@@ -24,6 +26,7 @@ class Command:
     handler: Callable[..., None]
     description: str
     category: str
+    allowed_roles: Sequence[str]
     args: Sequence[str] = field(default_factory=tuple)
 
 
@@ -31,7 +34,7 @@ class Command:
 _COMMANDS_REGISTRY: list[Command] = []
 
 
-def command(text: str, description: str, category: str):
+def command(text: str, description: str, category: str, allowed_roles: Sequence[str]):
     """
     Декоратор для регистрации команд.
     Автоматически извлекает аргументы из сигнатуры функции.
@@ -46,6 +49,7 @@ def command(text: str, description: str, category: str):
             handler=func,
             description=description,
             category=category,
+            allowed_roles=allowed_roles,
             args=args,
         )
         _COMMANDS_REGISTRY.append(cmd)
@@ -55,8 +59,9 @@ def command(text: str, description: str, category: str):
 
 
 def get_commands() -> Sequence[Command]:
-    """Возвращает список всех зарегистрированных команд."""
-    return _COMMANDS_REGISTRY
+    """Возвращает список команд, доступных текущему пользователю."""
+    user = auth_user()
+    return [c for c in _COMMANDS_REGISTRY if user.role in c.allowed_roles]
 
 
 def _build_completer_dict() -> dict:
@@ -79,8 +84,7 @@ def get_completer() -> NestedCompleter:
 
 def find_command(user_input: str) -> Command | None:
     """
-    Находит команду по вводу пользователя.
-    Проверяет, начинается ли ввод с текста команды.
+    Находит команду по вводу пользователя среди разрешённых для его роли.
     """
     for cmd in get_commands():
         if user_input == cmd.text or user_input.startswith(cmd.text + " "):
@@ -100,7 +104,7 @@ def get_args(user_input: str, cmd: Command) -> dict[str, str]:
         raise ValueError(f"Input is not aligned with {cmd.text}")
     command_parts = cmd.text.split()
     input_parts = user_input.split()
-    args = input_parts[len(command_parts) :]
+    args = input_parts[len(command_parts):]
     if len(args) != len(cmd.args):
         raise ValueError(f"Command {cmd.text} expects {len(cmd.args)} argument(s)")
     return dict(zip(cmd.args, args))
