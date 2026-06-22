@@ -8,16 +8,22 @@ from users import User, find_user_by_login_and_pass
 
 ROLE_CATALOG_MANAGER: Final[str] = "catalog_manager"
 ROLE_SALES_MANAGER: Final[str] = "sales_manager"
+ROLE_INVENTORY_MANAGER: Final[str] = "inventory_manager"
+ROLE_WORKER: Final[str] = "worker"
 
 ALL_ROLES: Final[Sequence[str]] = (
-    ROLE_SALES_MANAGER,
     ROLE_CATALOG_MANAGER,
+    ROLE_SALES_MANAGER,
+    ROLE_INVENTORY_MANAGER,
+    ROLE_WORKER,
 )
 
 # Учётные данные для быстрого входа в режиме разработки
 _DEV_CREDENTIALS: Final[dict[str, str]] = {
     "cat_man": "catalog123",
     "sales_man": "sales123",
+    "inv_man": "inventory123",
+    "worker1": "worker123",
 }
 
 _USER: User | None = None

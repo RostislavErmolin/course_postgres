@@ -4,41 +4,41 @@ CREATE DATABASE inventorydb;
 CREATE USER app_user WITH PASSWORD 'example';
 GRANT ALL PRIVILEGES ON DATABASE inventorydb TO app_user;
 
+-- Роли приложения (без пароля — вход только через app_user)
+CREATE ROLE catalog_manager;
+CREATE ROLE sales_manager;
+CREATE ROLE inventory_manager;
+CREATE ROLE worker;
+CREATE ROLE supervisor IN ROLE catalog_manager, sales_manager;
+
 \c inventorydb
 
-CREATE SCHEMA catalog;
-GRANT ALL ON SCHEMA catalog TO app_user;
-GRANT ALL PRIVILEGES ON DATABASE inventorydb TO app_user;
+-- Права на схему public
+GRANT CREATE ON SCHEMA public TO app_user;
 
-CREATE TABLE catalog.product_categories (
+-- Расширение для хеширования паролей
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Схема авторизации (управляется суперпользователем вне миграций)
+CREATE SCHEMA auth;
+
+CREATE TABLE auth.users (
     id SERIAL PRIMARY KEY,
-    name VARCHAR NOT NULL
+    username VARCHAR NOT NULL UNIQUE,
+    password VARCHAR NOT NULL,
+    role VARCHAR NOT NULL CHECK (
+        role IN ('catalog_manager', 'sales_manager', 'inventory_manager', 'worker')
+    )
 );
 
-CREATE TABLE catalog.products (
-    id SERIAL PRIMARY KEY,
-    sku VARCHAR(30) NOT NULL UNIQUE,
-    name VARCHAR NOT NULL,
-    price NUMERIC(10, 2) NOT NULL,
-    category_id INTEGER NOT NULL
-);
+-- Доступ app_user к auth.users
+GRANT USAGE ON SCHEMA auth TO app_user;
+GRANT SELECT ON auth.users TO app_user;
+GRANT REFERENCES ON auth.users TO app_user;
 
-CREATE TABLE catalog.warehouses (
-    id SERIAL PRIMARY KEY,
-    city VARCHAR NOT NULL,
-    address VARCHAR NOT NULL,
-    label VARCHAR,
-    is_central BOOLEAN NOT NULL DEFAULT FALSE
-);
-
--- Гарантируем не более одного центрального склада на уровне БД
-CREATE UNIQUE INDEX one_central_warehouse ON catalog.warehouses (is_central)
-WHERE is_central = TRUE;
-
-GRANT ALL ON ALL TABLES IN SCHEMA catalog TO app_user;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA catalog TO app_user;
--- Права 
-ALTER DEFAULT PRIVILEGES IN SCHEMA catalog
-    GRANT ALL ON TABLES TO app_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA catalog
-    GRANT ALL ON SEQUENCES TO app_user;
+-- Тестовые пользователи
+INSERT INTO auth.users (username, password, role) VALUES
+    ('cat_man',  crypt('catalog123',   gen_salt('bf')), 'catalog_manager'),
+    ('sales_man',crypt('sales123',     gen_salt('bf')), 'sales_manager'),
+    ('inv_man',  crypt('inventory123', gen_salt('bf')), 'inventory_manager'),
+    ('worker1',  crypt('worker123',    gen_salt('bf')), 'worker');
